@@ -10,6 +10,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2 
 import time
+import math
 
 
 
@@ -160,6 +161,7 @@ if __name__ == "__main__":
                         aruco_list[temp_2] = temp_1
                     key_list = aruco_list.keys()
                     font = cv2.FONT_HERSHEY_SIMPLEX
+                    # print(key_list)
                     for key in key_list:
                         dict_entry = aruco_list[key]    
                         centre = dict_entry[0] + dict_entry[1] + dict_entry[2] + dict_entry[3]
@@ -171,7 +173,8 @@ if __name__ == "__main__":
                         cv2.circle(images,centre,1,(0,0,255),8)
                     
                     # Compute distance when matching the conditions
-                    
+                    # print(result_center)
+                    print(len(result_center))
                     if len(result_center)<4:
                         print("No enough marker detected")
                     
@@ -197,28 +200,32 @@ if __name__ == "__main__":
                         p_3 = [x_id3,y_id3]
 
                         # Deproject pixel to 3D point
-                        point_0 = pixel2point(depth_frame,p_5)           
+                        point_0 = pixel2point(depth_frame,p_0)           
                         point_5 = pixel2point(depth_frame,p_5)
                         point_4 = pixel2point(depth_frame,p_4)
                         point_3 = pixel2point(depth_frame,p_3)
+                        # point_0_new = np.array(point_0)
+                        # point_5_new = np.array(point_5)
+                        # point_4_new = np.array(point_4)
+                        # point_3_new = np.array(point_3)
                         # Calculate target point
-                        point_target=point_4+point_3-point_5
+                        point_target=[point_4[0]+point_3[0]-point_5[0],point_4[1]+point_3[1]-point_5[1],point_4[2]+point_3[2]-point_5[2]]
                         # Compute distance
-                        dis=distance_3dpoints(point_target,point_0)
+                        # dis=distance_3dpoints(point_target,point_0)
+
+                        # Display target and draw a line between them
+                        color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
+                        target_pixel = rs.rs2_project_point_to_pixel(color_intrin, point_target)
+                        target_pixel[0] = int(target_pixel[0])
+                        target_pixel[1] = int(target_pixel[1])
+                        cv2.circle(images,tuple(target_pixel),1,(0,0,255),8)
+                        cv2.line(images,tuple(p_0),tuple(target_pixel),(0,255,0),2)
+                     
+                        # Euclidean distance
+                        dis_obj2target = distance_3dpoints(point_0,point_target) 
+                        dis_obj2target_goal = dis_obj2target*np.sin(np.arccos(0.02/dis_obj2target))
                         
-                        # # Get depth from pixels
-                        # depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
-                        # dis2cam0 = depth_frame.get_distance(x_id0,y_id0)
-                        # dis2cam5 = depth_frame.get_distance(x_id5,y_id5)
-                        # # convert pixels to 3D coordinates in camera frame
-                        # obj0_pos = rs.rs2_deproject_pixel_to_point(depth_intrin, [x_id0, y_id0], dis2cam0)
-                        # target5_pos = rs.rs2_deproject_pixel_to_point(depth_intrin, [x_id5, y_id5], dis2cam5)
-                        
-                        # calculate distance between two points
-                        # dis_obj2target = np.sqrt(pow(obj0_pos[0]-target5_pos[0],2)+pow(obj0_pos[1]-target5_pos[1],2)+pow(obj0_pos[2]-target5_pos[2],2))
-                        dis_obj2target=distance_pixel(depth_frame,p_0,p_5)
-                        # print(target5_pos)
-                        print(dis_obj2target)
+                        print(dis_obj2target_goal)
                         
 
                     # Outline all of the markers detected in our image
