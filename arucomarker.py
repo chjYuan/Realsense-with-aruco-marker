@@ -57,7 +57,7 @@ def distance_3dpoints(u,v):
 if __name__ == "__main__":
 
     # Default settings such as serial number
-    device_id = "829212070352"  # "923322071108" # serial number of device to use or None to use default
+    device_id = "829212070352"  # Lab: "828112071102" home:"829212070352"
     enable_rgb = True
     enable_depth = True
     # Configure streams
@@ -101,6 +101,7 @@ if __name__ == "__main__":
         frame_time = start_time
         
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+        cv2.namedWindow('Usefulimage', cv2.WINDOW_AUTOSIZE)
 
         # Aruco marker part
         # Load the dictionary that was used to generate the markers.
@@ -111,8 +112,10 @@ if __name__ == "__main__":
 
 
         while True:
+            start1 = time.time()
             last_time = frame_time
-            frame_time = time.time() - start_time
+            frame_time = time.time() - last_time
+            # print("frame_time",frame_time)
             frame_count += 1
 
             #
@@ -136,15 +139,20 @@ if __name__ == "__main__":
 
                 # Stack both images horizontally
                 images = None
+                useful_color_image = None
                 if enable_rgb:
-                    images = np.hstack((color_image, colorized_depth)) if enable_depth else color_image
+                    images = color_image
+                    # np.hstack((color_image, colorized_depth)) if enable_depth else color_image
                 elif enable_depth:
                     images = colorized_depth
+            
 
 
                 # Aruco marker part
                 # Detect the markers in the image
                 markerCorners, markerIds, rejectedCandidates = cv2.aruco.detectMarkers(color_image, dictionary, parameters=parameters)
+
+
                 
                 aruco_list = {}
                 # centre= {}
@@ -170,78 +178,101 @@ if __name__ == "__main__":
                         centre = tuple(centre)
                         result_center[key]= centre
                         # orient_centre = tuple((dict_entry[0]+dict_entry[1])/2)
-                        cv2.circle(images,centre,1,(0,0,255),8)
+                        cv2.circle(color_image,centre,1,(0,0,255),8)
                     
                     # Compute distance when matching the conditions
                     # print(result_center)
-                    print(len(result_center))
+                    # print(len(result_center))
                     if len(result_center)<4:
                         print("No enough marker detected")
                     
-                    else:
-                        # Moving object localization marker
-                        x_id0 = result_center[0][0]
-                        y_id0 = result_center[0][1]
-                        p_0 = [x_id0,y_id0]
-                        
-                        # Target object localization marker 
-                        # Single ID-5
-                        x_id5 = result_center[5][0]
-                        y_id5 = result_center[5][1]
-                        p_5 = [x_id5,y_id5]
-                        
-                        # Dual ID-4 and ID-3
-                        x_id4 = result_center[4][0]
-                        y_id4 = result_center[4][1]
-                        p_4 = [x_id4,y_id4]
+                    if len(result_center)>=4:
+                        # To avoid keyerror
+                        # start = time.time()
+                        try:
+                            # Moving object localization marker
+                            x_id0 = result_center[0][0]
+                            y_id0 = result_center[0][1]
+                            p_0 = [x_id0,y_id0]
+                            
+                            # Target object localization marker 
+                            # Single ID-5
+                            x_id5 = result_center[5][0]
+                            y_id5 = result_center[5][1]
+                            p_5 = [x_id5,y_id5]
+                            
+                            # Dual ID-4 and ID-3
+                            x_id4 = result_center[4][0]
+                            y_id4 = result_center[4][1]
+                            p_4 = [x_id4,y_id4]
 
-                        x_id3 = result_center[3][0]
-                        y_id3 = result_center[3][1]
-                        p_3 = [x_id3,y_id3]
+                            x_id3 = result_center[3][0]
+                            y_id3 = result_center[3][1]
+                            p_3 = [x_id3,y_id3]
 
-                        # Deproject pixel to 3D point
-                        point_0 = pixel2point(depth_frame,p_0)           
-                        point_5 = pixel2point(depth_frame,p_5)
-                        point_4 = pixel2point(depth_frame,p_4)
-                        point_3 = pixel2point(depth_frame,p_3)
-                        # point_0_new = np.array(point_0)
-                        # point_5_new = np.array(point_5)
-                        # point_4_new = np.array(point_4)
-                        # point_3_new = np.array(point_3)
-                        # Calculate target point
-                        point_target=[point_4[0]+point_3[0]-point_5[0],point_4[1]+point_3[1]-point_5[1],point_4[2]+point_3[2]-point_5[2]]
-                        # Compute distance
-                        # dis=distance_3dpoints(point_target,point_0)
+                            # Deproject pixel to 3D point
+                            point_0 = pixel2point(depth_frame,p_0)           
+                            point_5 = pixel2point(depth_frame,p_5)
+                            point_4 = pixel2point(depth_frame,p_4)
+                            point_3 = pixel2point(depth_frame,p_3)
+                            # Calculate target point
+                            point_target=[point_4[0]+point_3[0]-point_5[0],point_4[1]+point_3[1]-point_5[1],point_4[2]+point_3[2]-point_5[2]]
+                            # Compute distance
+                            # dis=distance_3dpoints(point_target,point_0)
 
-                        # Display target and draw a line between them
-                        color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
-                        target_pixel = rs.rs2_project_point_to_pixel(color_intrin, point_target)
-                        target_pixel[0] = int(target_pixel[0])
-                        target_pixel[1] = int(target_pixel[1])
-                        cv2.circle(images,tuple(target_pixel),1,(0,0,255),8)
-                        cv2.line(images,tuple(p_0),tuple(target_pixel),(0,255,0),2)
-                     
-                        # Euclidean distance
-                        dis_obj2target = distance_3dpoints(point_0,point_target) 
-                        dis_obj2target_goal = dis_obj2target*np.sin(np.arccos(0.02/dis_obj2target))
+                            # Display target and draw a line between them
+                            color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
+                            target_pixel = rs.rs2_project_point_to_pixel(color_intrin, point_target)
+                            target_pixel[0] = int(target_pixel[0])
+                            target_pixel[1] = int(target_pixel[1])
+                            cv2.circle(images,tuple(target_pixel),1,(0,0,255),8)
+                            cv2.line(images,tuple(p_0),tuple(target_pixel),(0,255,0),2)
                         
-                        print(dis_obj2target_goal)
+                            # Euclidean distance
+                            dis_obj2target = distance_3dpoints(point_0,point_target) 
+                            dis_obj2target_goal = dis_obj2target*np.sin(np.arccos(0.02/dis_obj2target))
+
+                            
+                            print(dis_obj2target_goal)
+                            useful_color_image=color_image
+                            # images = cv2.aruco.drawDetectedMarkers(images, markerCorners, borderColor=(0, 0, 255))
+                            # end = time.time()
+                            # print(str(end-start))
+                        
+                        except KeyError:
+                            print("Keyerror!!!")
+
+                        
+                        
                         
 
                     # Outline all of the markers detected in our image
-                    images = cv2.aruco.drawDetectedMarkers(images, markerCorners, borderColor=(0, 0, 255))
+                    # images = cv2.aruco.drawDetectedMarkers(images, markerCorners, borderColor=(0, 0, 255))
+                    images = cv2.aruco.drawDetectedMarkers(color_image, markerCorners, borderColor=(0, 0, 255))
+                    
                     # print(result_center[0])
+                   
 
                 # Show images
-                
+                # Make sure to get the useful image 
                 if images is not None:
-                    cv2.imshow('RealSense', images)
+                    cv2.imshow('RealSense',color_image)
+                    if useful_color_image is not None:
+                        cv2.imshow('Usefulimage',useful_color_image)  
+                    print(useful_color_image)
 
             # Press esc or 'q' to close the image window
             key = cv2.waitKey(1)
             if key & 0xFF == ord('q') or key == 27:
                 cv2.destroyAllWindows()
                 break
+            
+            end = time.time()
+            print("running time",str(end-start1))
+        
+
+            
+
 
     finally:
         # Stop streaming
