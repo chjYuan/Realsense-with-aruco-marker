@@ -242,10 +242,6 @@ if __name__ == "__main__":
                         except KeyError:
                             print("Keyerror!!!")
 
-                        
-                        
-                        
-
                     # Outline all of the markers detected in our image
                     # images = cv2.aruco.drawDetectedMarkers(images, markerCorners, borderColor=(0, 0, 255))
                     images = cv2.aruco.drawDetectedMarkers(color_image, markerCorners, borderColor=(0, 0, 255))
